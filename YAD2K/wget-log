@@ -1,0 +1,8 @@
+Will not apply HSTS. The HSTS database must be a regular and non-world-writable file.
+ERROR: could not open HSTS store at '/home/ferdi/.wget-hsts'. HSTS will be disabled.
+--2020-06-16 19:51:52--  https://r5---sn-5hnekn7k.googlevideo.com/videoplayback?expire=1592351405
+Resolving r5---sn-5hnekn7k.googlevideo.com (r5---sn-5hnekn7k.googlevideo.com)... 209.85.226.74
+Connecting to r5---sn-5hnekn7k.googlevideo.com (r5---sn-5hnekn7k.googlevideo.com)|209.85.226.74|:443... connected.
+HTTP request sent, awaiting response... 403 Forbidden
+2020-06-16 19:51:53 ERROR 403: Forbidden.
+

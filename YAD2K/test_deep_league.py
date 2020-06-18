@@ -55,8 +55,8 @@ parser.add_argument(
     '-out',
     '--output_path',
     type=str,
-    help='path to output test images')
-
+    help='path to output test images',
+    default="output")
 parser.add_argument(
     '-champs',
     '--champs_in_game',
@@ -206,7 +206,7 @@ outfile = open('output/game_data.json', 'w')
 data_to_write = []
 
 
-def test_yolo(image, image_file_name):
+def test_yolo(image, image_file_name, champs):
     if is_fixed_size:  # TODO: When resizing we can use minibatch input.
         resized_image = image.resize(
             tuple(reversed(model_image_size)), Image.BICUBIC)
@@ -232,7 +232,6 @@ def test_yolo(image, image_file_name):
         })
 
     print('Found {} boxes for {}'.format(len(out_boxes), image_file_name))
-
     # Write data to a JSON file located within the 'output/' directory.
     # This ASSUMES that the game comes from a spectated video starting at 0:00
     # Else, data will not be alligned!
@@ -245,15 +244,15 @@ def test_yolo(image, image_file_name):
     data = {}
     data['timestamp'] = '0:00'
     data['champs'] = {}
-
+    champdetected = False
     for i, c in reversed(list(enumerate(out_classes))):
         predicted_class = class_names[c]
         box = out_boxes[i]
         score = out_scores[i]
 
-        if user_did_specify_champs and predicted_class not in champs_in_game:
+        if champs != "" and predicted_class not in champs:
             continue
-
+        champdetected = True
         label = '{} {:.2f}'.format(predicted_class, score)
 
         draw = ImageDraw.Draw(image)
@@ -286,82 +285,17 @@ def test_yolo(image, image_file_name):
 
 
         del draw
-
-    image.save(os.path.join(output_path, image_file_name), quality=90)
-
-def process_mp4(test_mp4_vod_path):
-    video = cv2.VideoCapture(test_mp4_vod_path)
-    print("Opened ", test_mp4_vod_path)
-    print("Processing MP4 frame by frame")
-
-    # forward over to the frames you want to start reading from.
-    # manually set this, fps * time in seconds you wanna start from
-    video.set(1, 0);
-    success, frame = video.read()
-    count = 0
-    file_count = 0
-    success = True
-    fps = int(video.get(cv2.CAP_PROP_FPS))
-    total_frame_count = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    print("Loading video %d seconds long with FPS %d and total frame count %d " % (total_frame_count/fps, fps, total_frame_count))
-
-    while success:
-        success, frame = video.read()
-        if not success:
-            break
-        if count % 1000 == 0:
-            print("Currently at frame ", count)
-
-        # i save once every fps, which comes out to 1 frames per second.
-        # i think anymore than 2 FPS leads to to much repeat data.
-        if count %  fps == 0:
-            im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            im = Image.fromarray(im).crop((1625, 785, 1920, 1080))
-            test_yolo(im, str(file_count) + '.jpg')
-            file_count += 1
-        count += 1
-
-def _main():
-    if args.subcommand == 'images':
-        for image_file_name in os.listdir(test_images_path):
-            try:
-                image_type = imghdr.what(os.path.join(test_images_path, image_file_name))
-                if not image_type:
-                    continue
-            except IsADirectoryError:
-                continue
-
-            image = Image.open(os.path.join(test_images_path, image_file_name)).crop((1645, 805, 1920, 1080))
-            test_yolo(image, image_file_name)
+    if champdetected:
+        return image
+    return "nochamp"
 
 
-    if args.subcommand == 'npz':
-        npz_obj = np.load(test_npz_path)
-        images = npz_obj['images']
+def _main(image, image_file_name, champs):
 
-        for image_index, image_arr in enumerate(images):
-            image = Image.fromarray(image_arr)
-            test_yolo(image, str(image_index) + '.jpg')
+    image = image.crop((1645, 805, 1920, 1080))
+    return test_yolo(image, "screenshot", champs)
 
-    if args.subcommand == 'mp4':
-        process_mp4(test_mp4_vod_path)
-
-    if args.subcommand == 'youtube':
-        youtube_download_path = os.path.dirname(os.path.abspath(__file__))
-        youtube_download_path = os.path.join(youtube_download_path, "output")
-        if os.path.exists(youtube_download_path + '/vod.mp4'):
-            os.remove(youtube_download_path + '/vod.mp4')
-        ydl_opts = {'outtmpl': youtube_download_path + '/' + 'vod_full.%(ext)s', 'format': '137'}
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([test_youtube_link])
-        # TODO test this on other systems.
-        print("Calling ffmpeg to cut up video")
-        call(['ffmpeg', '-i', youtube_download_path + '/vod_full.mp4', '-ss', start_time, '-to', end_time, '-c', 'copy', youtube_download_path + '/vod.mp4'])
-        os.remove(youtube_download_path + '/vod_full.mp4')
-        print("Done with ffmpeg")
-        process_mp4(youtube_download_path + '/vod.mp4')
-
-    sess.close()
 
 if __name__ == '__main__':
     _main()
+    sess.close()

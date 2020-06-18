@@ -1,0 +1,1 @@
+python test_deep_league.py -champs Syndra -out output images -images input/testimage
